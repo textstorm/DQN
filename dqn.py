@@ -6,9 +6,9 @@ import tensorflow.contrib.layers as layers
 from collections import deque
 
 class DeepQ():
-  def __init__(self, args, env, session, name):
-    self.observation_space_shape = args.observation_space.shape
-    self.num_actions = args.action_space.n
+  def __init__(self, args, session, name):
+    self.observation_space_shape = args.observation_space_shape
+    self.num_actions = args.action_space_n
     self.learning_rate = args.learning_rate
     self.sess = session
     self.replay_memory = deque()
@@ -28,7 +28,7 @@ class DeepQ():
 
     self.add_placeholder()
     self.build_graph()
-    self.build_loss()
+    self.build_train()
 
   def add_placeholder(self):
     self.observ_t = tf.placeholder(tf.float32, 
@@ -41,8 +41,8 @@ class DeepQ():
     #                                [None],
     #                                name='reward_t')
     self.y_t = tf.placeholder(tf.float32,
-                                  [None, self.num_actions],
-                                  name='y_t')
+                              [None, self.num_actions],
+                              name='y_t')
 
   def build_graph(self):
     self.q_values = self.mlp()
@@ -53,10 +53,10 @@ class DeepQ():
 
 
   def mlp(self):
-    W1 = self._weight_variable([self.observation_space_shape, 20])
-    b1 = self._bias_variable([20])
-    W2 = self._weight_variable([20, self.num_actions])
-    b2 = self._bias_variable([self.num_actions])
+    W1 = self._weight_variable([self.observation_space_shape, 20], 'W1')
+    b1 = self._bias_variable([20], 'b1')
+    W2 = self._weight_variable([20, self.num_actions], 'W2')
+    b2 = self._bias_variable([self.num_actions], 'b2')
     h_layer = tf.nn.relu(tf.matmul(self.observ_t, W1) + b1)
     return tf.matmul(h_layer, W2) + b2
 
@@ -115,9 +115,9 @@ class DeepQ():
       self.observ_t:state_batch})
 
   def build_train(self):
-    q_value = tf.reduce_sum(self.q_t * self.action_t, 1)
+    q_value = tf.reduce_sum(self.q_values * self.action_t, 1)
     self.loss_op = tf.reduce_mean(tf.square(self.y_t - q_value))
-    self.optimizer = tf.train.AdamOptimizer(0.0001).minimize(self.cost)
+    self.optimizer = tf.train.AdamOptimizer(0.0001).minimize(self.loss_op)
 
   def action(self,state):
     return np.argmax(self.sess.run(
