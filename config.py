@@ -5,11 +5,14 @@ def get_args():
 
   parser = argsparse.ArgumentParser()
   parser.add_argument('--random_seed', type=int, default='1013', help='random seed')
+  parser.add_argument('--env_name', type=str, default='CartPole-v0', help='name of environment')
 
   parser.add_argument('--hiddens_size', type=int, default=[64], help='mlp hidden size')
   parser.add_argument('--memory_size', type=int, default=50000, helo="experience replay memory size")
 
-  parser.add_argument('--max_step', type=int, default=1, help='number of epoch')
+  parser.add_argument('--nb_episodes', type=int, default=1, help='number of episode')
+  parser.add_argument('--test_episodes', type=int, default=5, help='number of test episode')
+  parser.add_argument('--nb_steps', type=int, default=1000, help='number of step in one episode')
   parser.add_argument('--start_epsilon', type=float, default=1.0, help='')
   parser.add_argument('--final_epsilon', type=float, default=0.05, help='')
   parser.add_argument('--batch_size', type=int, default=32, help='batch size')
