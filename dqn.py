@@ -51,7 +51,6 @@ class DeepQ():
     # if done: reward = 0.
     # self.replay_memory.append((new_ob, reward, done))
 
-
   def mlp(self):
     W1 = self._weight_variable([self.observation_space_shape, 20], 'W1')
     b1 = self._bias_variable([20], 'b1')
@@ -60,35 +59,40 @@ class DeepQ():
     h_layer = tf.nn.relu(tf.matmul(self.observ_t, W1) + b1)
     return tf.matmul(h_layer, W2) + b2
 
+  # def egreedy_action(self, observ_t):
+  #   random_action = tf.random_uniform(
+  #     [1], maxval=self.num_actions, minval=0, dtype=tf.int32)
+  #   deterministic_action = tf.argmax(self.q_values, 1)
+  #   choose_action = tf.random_uniform(
+  #     [1], maxval=1, minval=0, dtype=tf.float32) < self.epsilon
+
+  #   self.epsilon -= (self.start_epsilon - self.final_epsilon) / 10000
+  #   if self.epsilon <= self.final_epsilon:
+  #     self.epsilon = self.final_epsilon
+  #   action = tf.where(choose_action, random_action, deterministic_action)
+  #   return self.sess.run(action, feed_dict={self.observ_t: observ_t})
+
   def egreedy_action(self, observ_t):
-    random_action = tf.random_uniform(
-      [1], maxval=self.num_actions, minval=0, dtype=tf.int32)
-    deterministic_action = tf.argmax(self.q_values, 1)
-    choose_action = tf.random_uniform(
-      [1], maxval=1, minval=0, dtype=tf.float32) < self.epsilon
+    q_values_t = self.sess.run(self.q_values, feed_dict={self.observ_t: observ_t})
+    random_action = random.randint(0, self.num_actions - 1)
+    deterministic_action = np.argmax(q_values_t)
+    if np.random.uniform(0, 1, 1) < self.epsilon:
+      action = random_action
+    else:
+      action = deterministic_action
 
     self.epsilon -= (self.start_epsilon - self.final_epsilon) / 10000
     if self.epsilon <= self.final_epsilon:
       self.epsilon = self.final_epsilon
-    action = tf.where(choose_action, random_action, deterministic_action)
-    return self.sess.run(action, feed_dict={self.observ_t: observ_t})
 
-  # def egreedy_action(self, q_values):
-  #   random_actions = tf.random_uniform(tf.stack([self.batch_size],)
-  #                                      maxval=self.num_actions,
-  #                                      minval=0,
-  #                                      dtype=tf.int32)
-  #   deterministic_actions = tf.argmax(q_values, 1)
-  #   choose_action = tf.random_uniform(
-  #     tf.stack(self.batch_size), maxval=1.0, minval=0.0, dtype=tf.float32) < self.epsilon
-  #   return tf.where(choose_action, random_actions, deterministic_actions)
+    return action
 
   def train(self, obs, action, reward, new_obs, done):
     one_hot_action = tf.one_hot(action, self.num_actions)
     self.replay_memory.append((obs, action, reward, new_obs, done))
     if len(self.replay_memory) > self.memory_size:
       self.replay_memory.popleft()
-    if len(replay_memory) > self.batch_size:
+    if len(self.replay_memory) > self.batch_size:
       self.train_Q()
 
   def train_Q(self):
@@ -100,19 +104,20 @@ class DeepQ():
     done_batch = [data[4] for data in batch_data]
 
     y_batch = []
-    Q_value_batch = self.sess.run(self.Q_value, feed_dict={self.observ_t: nobs_batch})
+    Q_value_batch = self.sess.run(self.q_values, feed_dict={self.observ_t: nobs_batch})
 
-    for i in range(0,BATCH_SIZE):
-      done = minibatch[i][4]
+    for i in range(0, self.batch_size):
+      done = batch_data[i][4]
       if done:
         y_batch.append(rew_batch[i])
       else :
         y_batch.append(rew_batch[i] + self.gamma * np.max(Q_value_batch[i]))
 
+    y_batch = self.sess.run(tf.one_hot(y_batch, self.num_actions))
     self.optimizer.run(feed_dict={
       self.y_t:y_batch,
-      self.action_t:action_batch,
-      self.observ_t:state_batch})
+      self.action_t:act_batch,
+      self.observ_t:obs_batch})
 
   def build_train(self):
     q_value = tf.reduce_sum(self.q_values * self.action_t, 1)
@@ -121,7 +126,7 @@ class DeepQ():
 
   def action(self,state):
     return np.argmax(self.sess.run(
-      self.Q_value, feed_dict = {self.state_input:[state]})[0])
+      self.q_values, feed_dict = {self.observ_t:[state]})[0])
 
   def _weight_variable(self, shape, name, initializer=None):
     initializer = tf.truncated_normal_initializer(stddev=0.1)
