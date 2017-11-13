@@ -2,13 +2,15 @@
 import config
 import dqn
 import gym
+import numpy as np
+import tensorflow as tf
 
 def main(args):
   env = gym.make(args.env_name)
-  args.observation_space.shape = env.observation_space.shape
-  args.action_space.n = env.action_space.n
+  args.observation_space_shape = env.observation_space.shape[0]
+  args.action_space_n = env.action_space.n
 
-  with tf.Session as sess:
+  with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
     model = dqn.DeepQ(args, sess, name='dqn')
     for episode in range(args.nb_episodes):
