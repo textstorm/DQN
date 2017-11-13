@@ -11,12 +11,13 @@ def main(args):
   args.action_space_n = env.action_space.n
 
   with tf.Session() as sess:
-    sess.run(tf.global_variables_initializer())
     model = dqn.DeepQ(args, sess, name='dqn')
+    sess.run(tf.global_variables_initializer())
     for episode in range(args.nb_episodes):
       obs = env.reset()
       for step in range(args.nb_steps):
-        action = model.egreedy_action(np.array(obs)[None])[0]
+        #action = model.egreedy_action(np.array(obs)[None])[0]
+        action = model.egreedy_action([obs])
         new_obs, reward, done, _ = env.step(action)
         if done: reward = 0.
         model.train(obs, action, reward, new_obs, done)
@@ -28,8 +29,8 @@ def main(args):
         for i in range(args.test_episodes):
           obs = env.reset()
           for j in range(args.nb_steps):
-            env.render()
-            action = model.action(state)
+            #env.render()
+            action = model.action(obs)
             state,reward,done,_ = env.step(action)
             total_reward += reward
             if done: break
