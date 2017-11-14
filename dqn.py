@@ -61,6 +61,10 @@ class DeepQ(object):
 
     self.sess = tf.InteractiveSession()
 
+    self.optimizer = tf.train.AdamOptimizer(self.learning_rate)
+    self.global_step = tf.get_variable(
+      'global_step', [], 'int32', tf.constant_initializer(0), trainable=False)
+
     self.add_placeholder()
     self.build_Q()
     self.build_train()
@@ -90,7 +94,11 @@ class DeepQ(object):
   def build_train(self):
     action_Q = tf.reduce_sum(self.Q_value * self.action_t, 1)
     self.loss_op = tf.reduce_mean(tf.square(self.y_input - action_Q))
-    self.optimizer = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss_op)
+    # self.optimizer = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss_op)
+
+    grads_and_vars = self.optimizer.compute_gradients(self.loss_op)
+    grads_and_vars = [(tf.clip_by_norm(g, self.max_grad_norm), v) for g, v in grads_and_vars]
+    self.train_op = self.optimizer.apply_gradients(grads_and_vars, global_step=self.global_step)
 
   def egreedy_policy(self, state):
     self.epsilon = self.exploration.value(self.time_step)
@@ -128,7 +136,7 @@ class DeepQ(object):
       else :
         y_batch.append(reward_[i] + self.gamma * np.max(Q_left_batch[i]))
 
-    self.optimizer.run(
+    self.train_op.run(
       feed_dict={self.y_input: y_batch,
                  self.action_t: action_,
                  self.state_t: state_})
