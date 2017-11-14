@@ -18,7 +18,7 @@ def get_args():
   parser.add_argument('--batch_size', type=int, default=32, help='batch size')
   parser.add_argument('--gamma', type=float, default=0.9, help='discount foctor')
   parser.add_argument('--learning_rate', type=float, default=0.0001, help='learning rate')
-  parser.add_argument('--max_grad_norm', type=float, default=10.0, help='max norm of gradient')
+  parser.add_argument('--max_grad_norm', type=float, default=10., help='max norm of gradient')
   parser.add_argument('--schedule_timesteps', type=int, default=30000, help='interpolation spacing')
 
   return parser.parse_args()
