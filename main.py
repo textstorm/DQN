@@ -21,7 +21,7 @@ def main(args):
 
     if episode % 10 == 0:
       print model.epsilon
-      print len(model.replay_memory)
+      print model.replay_memory.get_length()
       total_reward = 0
       for i in range(args.test_episodes):
         state = env.reset()
