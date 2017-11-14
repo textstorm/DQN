@@ -15,12 +15,35 @@ class LinearSchedule(object):
     interval = min(float(t) / self.schedule_timesteps, 1.0)
     return self.initial_p - interval * (self.initial_p - self.final_p)
 
+class ReplayMemory(object):
+  def __init__(self, memory_size):
+    self.memory_size = memory_size
+    self.replay_memory = deque()
+
+  def get_length(self):
+    return len(self.replay_memory)
+
+  def add(self, state, one_hot_action, reward, next_state, done):
+    data = (state, one_hot_action, reward, next_state, done)
+    self.replay_memory.append(data)
+    if self.get_length() > self.memory_size:
+      self.replay_memory.popleft()
+
+  def sample(self, batch_size):
+    batch_data = random.sample(self.replay_memory, batch_size)
+    state_batch = [data[0] for data in batch_data]
+    action_batch = [data[1] for data in batch_data]
+    reward_batch = [data[2] for data in batch_data]
+    next_state_batch = [data[3] for data in batch_data]
+    done_batch = [data[4] for data in batch_data]
+
+    return state_batch, action_batch, reward_batch, next_state_batch, done_batch
+
 class DeepQ(object):
   def __init__(self, args, env, name):
     self.observation_space_shape = env.observation_space.shape[0]
     self.num_actions = env.action_space.n
     self.learning_rate = args.learning_rate
-    self.replay_memory = deque()
 
     self.memory_size = args.memory_size
     self.epsilon = args.start_epsilon
@@ -33,6 +56,8 @@ class DeepQ(object):
     self.time_step = 0
     self.schedule_timesteps = args.schedule_timesteps
     self.exploration = LinearSchedule(self.schedule_timesteps, 0.1)
+
+    self.replay_memory = ReplayMemory(self.memory_size)
 
     self.sess = tf.InteractiveSession()
 
@@ -77,9 +102,6 @@ class DeepQ(object):
 
     if random.random() <= self.epsilon:
       action = random_action
-      # self.epsilon -= (self.start_epsilon - self.final_epsilon) / 10000
-      # if self.epsilon <= self.final_epsilon:
-      #   self.epsilon = self.final_epsilon
     else:
       action = deterministic_action
     self.time_step += 1
@@ -88,35 +110,28 @@ class DeepQ(object):
   def train(self, state, action, reward, next_state, done):
     one_hot_action = np.zeros(self.num_actions)
     one_hot_action[action] = 1
-    self.replay_memory.append((state, one_hot_action, reward, next_state, done))
-    if len(self.replay_memory) > self.memory_size:
-      self.replay_memory.popleft()
 
-    if len(self.replay_memory) > self.batch_size:
+    self.replay_memory.add(state, one_hot_action, reward, next_state, done)
+    if self.replay_memory.get_length() > self.batch_size:
       self.train_Q()
 
   def train_Q(self):
-    self.time_step += 1
-    batch_data = random.sample(self.replay_memory, self.batch_size)
-    state_batch = [data[0] for data in batch_data]
-    action_batch = [data[1] for data in batch_data]
-    reward_batch = [data[2] for data in batch_data]
-    next_state_batch = [data[3] for data in batch_data]
+    state_, action_, reward_, next_state_, done_ = self.replay_memory.sample(self.batch_size)
 
     y_batch = []
-    Q_left_batch = self.Q_value.eval(feed_dict={self.state_t: next_state_batch})
+    Q_left_batch = self.Q_value.eval(feed_dict={self.state_t: next_state_})
 
     for i in range(0, self.batch_size):
-      done = batch_data[i][4]
+      done = done_[i]
       if done:
-        y_batch.append(reward_batch[i])
+        y_batch.append(reward_[i])
       else :
-        y_batch.append(reward_batch[i] + self.gamma * np.max(Q_left_batch[i]))
+        y_batch.append(reward_[i] + self.gamma * np.max(Q_left_batch[i]))
 
     self.optimizer.run(
       feed_dict={self.y_input: y_batch,
-                 self.action_t: action_batch,
-                 self.state_t: state_batch})
+                 self.action_t: action_,
+                 self.state_t: state_})
 
   def action(self, state):
     return np.argmax(self.Q_value.eval(
