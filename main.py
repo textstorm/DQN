@@ -12,7 +12,6 @@ def main(args):
   for episode in range(args.nb_episodes):
     state = env.reset()
     for step in range(args.nb_steps):
-      #action = model.egreedy_action(np.array(obs)[None])[0]
       action = model.egreedy_policy(state)
       next_state, reward, done, _ = env.step(action)
       model.train(state, action, reward, next_state, done)
